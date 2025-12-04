@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Making Suggestions</title>
+    
+    <style>
+        :root {
+            /* Paleta Azul Estándar (Unified Suite) */
+            --primary-blue: #007bff;
+            --dark-blue: #0056b3;
+            --green: #28a745;
+            --red: #dc3545;
+            --yellow: #f0ad4e;
+            
+            --bg-color: #f0f4f8;
+            --container-bg: #ffffff;
+            --text-color: #333;
+            --header-bg: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+            --tab-bg: #f1f1f1;
+            --tab-active-bg: var(--primary-blue);
+            --tab-text: #555;
+            --tab-active-text: #ffffff;
+            --border-color: #dee2e6;
+            --light-gray-bg: #f8f9fa;
+        }
+
+        /* Modo Oscuro */
+        body.dark-mode {
+            --bg-color: #121212; --container-bg: #1e1e1e; --text-color: #e0e0e0;
+            --header-bg: #1e1e1e; --tab-bg: #333; --tab-active-bg: var(--primary-blue);
+            --tab-text: #bbb; --tab-active-text: #ffffff; --border-color: #444; --light-gray-bg: #2a2a20;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: 0.3s; overscroll-behavior: none; }
+        .container { max-width: 950px; margin: 0 auto; background: var(--container-bg); border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.07); overflow: hidden; }
+        header { background: var(--header-bg); color: white; padding: 20px 35px; text-align: center; position: relative; }
+        header h1 { margin: 0; font-size: 2.5em; }
+        header p { font-size: 1.2em; opacity: 0.9; margin: 5px 0 0; }
+        .header-controls { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; }
+        .control-button { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.7); color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        /* Tabs */
+        .main-tab-nav { display: flex; background: var(--tab-bg); border-bottom: 3px solid var(--dark-blue); overflow-x: auto; }
+        .main-tab-nav button { background: inherit; border: none; padding: 18px 20px; cursor: pointer; font-size: 1.1em; font-weight: bold; color: var(--tab-text); flex-grow: 1; white-space: nowrap; }
+        .main-tab-nav button.active { background: var(--tab-active-bg); color: var(--tab-active-text); }
+        .main-tab-content { display: none; padding: 30px; }
+        .main-tab-content.is-active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Visuals */
+        h2 { color: var(--primary-blue); border-bottom: 2px solid var(--primary-blue); padding-bottom: 5px; margin-top: 0; }
+        .comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .tense-box { background: var(--light-gray-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; }
+        .icon-wrapper { font-size: 4em; display: block; margin-bottom: 10px; }
+        
+        /* Video */
+        .video-placeholder { background: var(--light-gray-bg); border: 2px dashed var(--border-color); border-radius: 8px; padding: 20px; text-align: center; margin-top: 20px; }
+        .video-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; background: #000; margin-top: 20px; border: 1px solid var(--border-color); }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+
+        /* Visualizer */
+        .formula-visualizer { background: var(--light-gray-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; margin-top: 20px; }
+        .formula-controls { margin-bottom: 20px; }
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; margin: 0 10px; vertical-align: middle; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background: var(--primary-blue); }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .formula-display { font-size: 1.3em; font-weight: bold; }
+        .formula-part { padding: 8px 12px; border-radius: 5px; background: var(--container-bg); border: 1px solid var(--border-color); margin: 0 5px; display: inline-block; }
+        .formula-part.subjunctive { background: #fff0f0; color: var(--red); border-color: var(--red); }
+        .formula-part.infinitive { background: #f0fff0; color: var(--green); border-color: var(--green); }
+
+        /* Bank Styles */
+        .bank-controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; background: var(--light-gray-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .bank-controls select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; min-width: 200px; background: var(--container-bg); color: var(--text-color); }
+        .verb-card { background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; cursor: pointer; }
+        .verb-card:hover { transform: translateY(-3px); border-color: var(--primary-blue); }
+        .verb-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .verb-title { font-size: 1.3em; font-weight: bold; color: var(--primary-blue); text-transform: capitalize; }
+        .verb-tag { background: var(--light-gray-bg); color: #666; padding: 3px 8px; border-radius: 12px; font-size: 0.8em; border: 1px solid var(--border-color); }
+        .cmd-person { color: #888; width: 40%; font-size: 0.9em; }
+        .cmd-form { font-weight: bold; color: var(--text-color); cursor: pointer; }
+        .btn-explain { background: var(--yellow); color: #333; border: none; padding: 3px 10px; border-radius: 15px; font-size: 0.8em; cursor: pointer; font-weight: bold; margin-left: 10px; }
+        
+        /* Modal */
+        #explain-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: none; justify-content: center; align-items: center; }
+        .modal-content { background: var(--container-bg); padding: 30px; border-radius: 15px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; border: 2px solid var(--primary-blue); color: var(--text-color); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .modal-close { position: absolute; top: 10px; right: 20px; font-size: 2.5em; font-weight: bold; cursor: pointer; color: #666; line-height: 0.8; }
+        .modal-close:hover { color: var(--red); }
+        .explain-block { margin-bottom: 20px; border-left: 4px solid var(--border-color); padding-left: 15px; }
+        .explain-block h4 { margin: 0 0 5px 0; color: var(--primary-blue); }
+        .explain-ex { font-style: italic; background: var(--light-gray-bg); padding: 5px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+
+        /* Practice */
+        .quiz-section { margin-bottom: 25px; padding-bottom: 25px; border-bottom: 2px dashed var(--border-color); }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .refresh-btn { font-size: 0.9em; padding: 5px 10px; background: var(--primary-blue); color: white; border:none; border-radius: 4px; cursor: pointer; }
+        .quiz-question { background: var(--light-gray-bg); padding: 15px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid var(--primary-blue); }
+        .quiz-question button { background: var(--container-bg); border: 1px solid var(--primary-blue); color: var(--primary-blue); padding: 8px 15px; margin-right: 10px; border-radius: 5px; cursor: pointer; margin-top: 5px; }
+        .quiz-question button:hover { background: var(--primary-blue); color: white; }
+        .feedback { font-weight: bold; margin-left: 10px; }
+        .correct { color: var(--green); } .incorrect { color: var(--red); }
+        .explanation-text { font-size: 0.9em; color: #555; margin-top: 10px; padding: 8px; background: #e9ecef; border-radius: 4px; }
+        .explanatory-note { font-size: 0.9em; font-style: italic; background: var(--light-gray-bg); padding: 10px; border-radius: 5px; margin-bottom: 15px; border: 1px dashed var(--border-color);}
+
+        /* Story */
+        .interactive-story { background: #fffbe6; border: 1px solid #ffe58f; padding: 20px; border-radius: 8px; font-size: 1.1em; line-height: 2; }
+        .interactive-story select { padding: 2px 5px; border: 1px solid #ccc; border-radius: 4px; }
+        body.dark-mode .interactive-story { background: #2c2c20; border-color: #444; color: #eee; }
+        
+        /* Drag Drop */
+        .sorter-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .dropzone { min-height: 200px; background: var(--light-gray-bg); border: 3px dashed var(--border-color); border-radius: 8px; padding: 10px; position: relative;}
+        .dropzone h4 { text-align: center; margin-top: 0; color: var(--dark-blue); pointer-events: none; }
+        .draggable { background: var(--container-bg); border: 1px solid #ccc; padding: 10px; margin-bottom: 8px; border-radius: 5px; cursor: grab; display: inline-block; margin-right: 5px; touch-action: none; user-select: none; z-index: 10; }
+        .draggable.dragging { opacity: 0.5; border: 2px dashed var(--primary-blue); }
+        #items-to-sort { margin-top: 20px; padding: 10px; background: var(--tab-bg); border-radius: 8px; min-height: 60px; }
+
+        /* Flashcards */
+        .flashcard-app { display: flex; flex-direction: column; align-items: center; }
+        .flashcard-container { width: 90%; max-width: 500px; height: 300px; perspective: 1000px; margin-bottom: 20px; }
+        .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 10px; }
+        .flashcard.is-flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; border-radius: 10px; box-sizing: border-box; font-size: 1.4em; overflow: hidden; }
+        .card-front { background: var(--container-bg); border: 2px solid var(--primary-blue); color: var(--text-color); }
+        .card-back { background: var(--light-gray-bg); border: 2px solid var(--green); color: var(--dark-blue); transform: rotateY(180deg); }
+        .card-back p { margin: 10px 0 0; font-size: 0.8em; color: var(--text-color); opacity: 0.8; }
+        body.dark-mode .card-back { color: var(--text-color); }
+        .flashcard-nav { display: flex; justify-content: center; gap: 20px; }
+        .flashcard-nav button { font-size: 1em; font-weight: bold; }
+
+        .tts-icon { font-size: 1.1em; cursor: pointer; margin-left: 8px; opacity: 0.6; transition: transform 0.2s; }
+        .tts-icon:hover { opacity: 1; transform: scale(1.2); }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.95em; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+    </style>
+</head>
+<body class="">
+
+    <div class="container">
+        <header>
+            <div class="header-controls">
+                <button class="control-button" onclick="toggleLang()">EN / ES</button>
+                <button class="control-button" onclick="toggleTheme()">☀️/🌙</button>
+            </div>
+            <h1 data-lang-key="header_title">Making Suggestions</h1>
+            <p data-lang-key="header_subtitle">Advice & Recommendations</p>
+        </header>
+        
+        <nav class="main-tab-nav">
+            <button class="main-tab-link active" onclick="changeMainTab(event, 'tab-metaphor')" data-lang-key="tab_1">💡 The Concept</button>
+            <button class="main-tab-link" onclick="changeMainTab(event, 'tab-formacion')" data-lang-key="tab_2">✍️ The Formula</button>
+            <button class="main-tab-link" onclick="changeMainTab(event, 'tab-bank')" data-lang-key="tab_bank">📚 Phrase Bank</button>
+            <button class="main-tab-link" onclick="changeMainTab(event, 'tab-practica')" data-lang-key="tab_3">🧠 Interactive Practice</button>
+            <button class="main-tab-link" onclick="changeMainTab(event, 'tab-flashcards')" data-lang-key="tab_4">📇 Flashcards</button>
+        </nav>
+
+        <main>
+            <div id="tab-metaphor" class="main-tab-content is-active">
+                <h2 data-lang-key="metaphor_title">Giving Advice</h2>
+                
+                <div class="comparison-grid">
+                    <div class="tense-box">
+                        <span class="icon-wrapper">💡</span>
+                        <h3 style="color: var(--green);" data-lang-key="cond_title">Soft Suggestion</h3>
+                        <p>A friendly idea or possibility.</p>
+                        <p><em>"<strong>Podrías</strong> estudiar más."</em></p>
+                    </div>
+                    <div class="tense-box">
+                        <span class="icon-wrapper">👇</span>
+                        <h3 style="color: var(--primary-blue);" data-lang-key="cmd_title">Direct Recommendation</h3>
+                        <p>A stronger piece of advice.</p>
+                        <p><em>"Te aconsejo <strong>que estudies</strong>."</em></p>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px;" data-lang-key="video_title">Video Tutorial</h3>
+                <div class="video-container">
+                    <iframe src="https://drive.google.com/file/d/1qHOThlaPG9sPwqGWjrvzOcphqbKsr4Cy/preview" allow="autoplay"></iframe>
+                </div>
+
+                <h3 style="margin-top: 30px;" data-lang-key="viz_title">Interactive Formula</h3>
+                <div class="formula-visualizer">
+                    <div class="formula-controls">
+                        <label>Infinitive</label>
+                        <label class="switch">
+                            <input type="checkbox" id="form-toggle" onchange="toggleFormula()">
+                            <span class="slider"></span>
+                        </label>
+                        <label>Subjunctive</label>
+                    </div>
+                    <div class="formula-display">
+                        <span class="formula-part">Te aconsejo...</span>
+                        <span class="formula-part" id="formula-que" style="display: none;">que</span>
+                        <span class="formula-part infinitive" id="formula-result"><strong>escuchar</strong>.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-formacion" class="main-tab-content">
+                <h2 data-lang-key="form_title">The Structure</h2>
+                
+                <div class="comparison-grid">
+                    <div class="tense-box" style="border-top: 4px solid var(--green);">
+                        <h3>1. Trigger + Infinitive</h3>
+                        <p>Phrases that take the Infinitive directly.</p>
+                        <ul style="text-align:left;">
+                            <li><strong>Deberías</strong> <u>comer</u> bien.</li>
+                            <li><strong>Podrías</strong> <u>ir</u> al médico.</li>
+                            <li><strong>¿Por qué no</strong> <u>hablas</u> con él?</li>
+                            <li><strong>Yo en tu lugar</strong> <u>haría</u> eso.</li>
+                        </ul>
+                    </div>
+                    <div class="tense-box" style="border-top: 4px solid var(--primary-blue);">
+                        <h3>2. Trigger + Que + Subjunctive</h3>
+                        <p>Phrases that require the Subjunctive.</p>
+                        <ul style="text-align:left;">
+                            <li><strong>Te aconsejo que</strong> <u>comas</u> bien.</li>
+                            <li><strong>Te recomiendo que</strong> <u>vayas</u>.</li>
+                            <li><strong>Sugiero que</strong> <u>hables</u>.</li>
+                            <li><strong>Es mejor que</strong> <u>lo hagas</u>.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-bank" class="main-tab-content">
+                <h2 data-lang-key="bank_title">Suggestion Bank</h2>
+                <p data-lang-key="bank_desc">Common phrases to give advice.</p>
+                
+                <div class="bank-controls">
+                    <label>Filter:</label>
+                    <select id="suggSelect">
+                        <option value="all">All Phrases</option>
+                    </select>
+                </div>
+                <div id="suggBankContainer" class="comparison-grid" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+            </div>
+
+            <div id="explain-modal" onclick="if(event.target === this) closeModal()">
+                <div class="modal-content">
+                    <span class="modal-close" onclick="closeModal()">&times;</span>
+                    <h2 id="modal-title">Expression</h2>
+                    
+                    <div class="explain-block" style="border-left: 4px solid var(--green); padding-left:10px; margin-bottom:15px;">
+                        <h4>Structure</h4>
+                        <p class="explain-label" id="modal-struct">-</p>
+                    </div>
+                    
+                    <div class="explain-block" style="border-left: 4px solid var(--primary-blue); padding-left:10px;">
+                        <h4>Example</h4>
+                        <span class="explain-ex" id="modal-ex">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-practica" class="main-tab-content">
+                <h2 data-lang-key="practice_main_title">Interactive Practice</h2>
+                
+                <div class="quiz-section">
+                    <div class="section-header">
+                        <h3 data-lang-key="quiz_title">Part 1: Quick Quiz</h3>
+                        <button id="generate-quiz" class="refresh-btn button-secondary" data-lang-key="btn_new">New Quiz</button>
+                    </div>
+                    <div class="explanatory-note" data-lang-key="quiz_note">Note: Audio reads infinitives.</div>
+                    <div id="quiz-container"></div>
+                </div>
+
+                <div class="quiz-section">
+                    <div class="section-header">
+                        <h3 data-lang-key="story_title">Part 2: Story Completion</h3>
+                        <button id="generate-story" class="refresh-btn button-secondary" data-lang-key="btn_new_story">New Story</button>
+                    </div>
+                    <div id="story-container" class="interactive-story"></div>
+                    <button id="check-story-btn" class="button-primary" style="margin-top: 20px;" data-lang-key="btn_check">Check Story</button>
+                </div>
+
+                <div class="quiz-section">
+                    <div class="section-header">
+                        <h3 data-lang-key="drag_title">Part 3: Structure Sorter</h3>
+                        <button id="generate-drag" class="refresh-btn button-secondary" data-lang-key="btn_new_match">New Matcher</button>
+                    </div>
+                    <p data-lang-key="drag_desc">Does it trigger Infinitive or Subjunctive?</p>
+                    <div id="items-to-sort">
+                        <div id="drag-items-pool"></div>
+                    </div>
+                    <div class="sorter-container">
+                        <div class="dropzone" id="zone-infinitive"><h4 style="color: var(--green);">+ Infinitive / Indicative</h4></div>
+                        <div class="dropzone" id="zone-subjunctive"><h4 style="color: var(--primary-blue);">+ Que + Subjunctive</h4></div>
+                    </div>
+                    <button id="check-drag-btn" class="button-primary" style="margin-top: 20px;" data-lang-key="btn_check_match">Check Matches</button>
+                    <div id="drag-feedback" class="feedback"></div>
+                </div>
+            </div>
+
+            <div id="tab-flashcards" class="main-tab-content">
+                <h2>Flashcards</h2>
+                <div class="flashcard-app">
+                    <div class="flashcard-container">
+                        <div class="flashcard" id="flashcard">
+                            <div class="card-face card-front" id="card-front"></div>
+                            <div class="card-face card-back" id="card-back"></div>
+                        </div>
+                    </div>
+                    <div class="flashcard-nav">
+                        <button onclick="prevCard()" class="button-secondary" data-lang-key="btn_prev">Previous</button>
+                        <button onclick="flipCard()" class="button-primary" data-lang-key="btn_flip">Flip</button>
+                        <button onclick="nextCard()" class="button-secondary" data-lang-key="btn_next">Next</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+<script>
+
+// --- GLOBAL UTILS ---
+function speak(txt) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); 
+        const u = new SpeechSynthesisUtterance(txt);
+        u.lang = 'es-ES';
+        u.rate = 0.9; 
+        window.speechSynthesis.speak(u);
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('.tts-icon');
+    if (target) {
+        e.stopPropagation(); e.preventDefault();
+        const text = target.dataset.tts;
+        if (text) speak(text);
+    }
+});
+
+function toggleTheme() { document.body.classList.toggle('dark-mode'); }
+function closeModal() { document.getElementById('explain-modal').style.display = 'none'; }
+
+// --- DATA & TRANSLATIONS ---
+const uiData = {
+    en: {
+        header_title: "Making Suggestions",
+        header_subtitle: "Advice & Recommendations",
+        tab_1: "💡 The Concept",
+        tab_2: "✍️ The Formula",
+        tab_bank: "📚 Phrase Bank",
+        tab_3: "🧠 Interactive Practice",
+        tab_4: "📇 Flashcards",
+        metaphor_title: "Giving Advice",
+        cond_title: "Soft Suggestion",
+        metaphor_cond: "A friendly idea or possibility.",
+        cmd_title: "Direct Recommendation",
+        metaphor_cmd: "A stronger piece of advice.",
+        video_title: "Video Tutorial",
+        viz_title: "Interactive Formula",
+        viz_desc: "Click to toggle between Infinitive and Subjunctive.",
+        form_title: "The Structure",
+        bank_title: "Suggestion Bank",
+        bank_desc: "Common phrases to give advice.",
+        practice_main_title: "Interactive Practice",
+        quiz_title: "Part 1: Quick Quiz",
+        btn_new: "New Quiz",
+        quiz_note: "Note: Audio reads infinitives.",
+        story_title: "Part 2: Story Completion",
+        btn_new_story: "New Story",
+        btn_check: "Check Story",
+        drag_title: "Part 3: Structure Sorter",
+        btn_new_match: "New Sorter",
+        drag_desc: "Does it trigger Infinitive or Subjunctive?",
+        btn_check_match: "Check Sorting",
+        btn_prev: "Previous",
+        btn_flip: "Flip",
+        btn_next: "Next"
+    },
+    es: {
+        header_title: "Hacer Sugerencias",
+        header_subtitle: "Consejos y Recomendaciones",
+        tab_1: "💡 El Concepto",
+        tab_2: "✍️ La Fórmula",
+        tab_bank: "📚 Banco de Frases",
+        tab_3: "🧠 Práctica Interactiva",
+        tab_4: "📇 Flashcards",
+        metaphor_title: "Dar Consejos",
+        cond_title: "Sugerencia Suave",
+        metaphor_cond: "Una idea o posibilidad amistosa.",
+        cmd_title: "Recomendación Directa",
+        metaphor_cmd: "Un consejo más fuerte.",
+        video_title: "Video Tutorial",
+        viz_title: "Fórmula Interactiva",
+        viz_desc: "Haz clic para cambiar entre Infinitivo y Subjuntivo.",
+        form_title: "La Estructura",
+        bank_title: "Banco de Sugerencias",
+        bank_desc: "Frases comunes para aconsejar.",
+        practice_main_title: "Práctica Interactiva",
+        quiz_title: "Parte 1: Quiz Rápido",
+        btn_new: "Nuevo Quiz",
+        quiz_note: "Nota: El audio lee infinitivos.",
+        story_title: "Parte 2: Historia",
+        btn_new_story: "Nueva Historia",
+        btn_check: "Verificar Historia",
+        drag_title: "Parte 3: Clasificador",
+        btn_new_match: "Nuevo Juego",
+        drag_desc: "¿Usa Infinitivo o Subjuntivo?",
+        btn_check_match: "Verificar",
+        btn_prev: "Anterior",
+        btn_flip: "Voltear",
+        btn_next: "Siguiente"
+    }
+};
+
+let currentLang = 'en';
+
+// --- BANK DATABASE ---
+const suggestionDB = [
+    { phrase: "Podrías", type: "inf", struct: "+ Infinitive", ex: "<strong>Podrías</strong> estudiar más." },
+    { phrase: "Deberías", type: "inf", struct: "+ Infinitive", ex: "<strong>Deberías</strong> ir al médico." },
+    { phrase: "¿Por qué no...?", type: "inf", struct: "+ Present Indicative", ex: "<strong>¿Por qué no</strong> hablas con él?" },
+    { phrase: "Te aconsejo que", type: "subj", struct: "+ Subjunctive", ex: "<strong>Te aconsejo que</strong> estudies." },
+    { phrase: "Te recomiendo que", type: "subj", struct: "+ Subjunctive", ex: "<strong>Te recomiendo que</strong> vayas." },
+    { phrase: "Sugiero que", type: "subj", struct: "+ Subjunctive", ex: "<strong>Sugiero que</strong> hables con ella." },
+    { phrase: "Es mejor que", type: "subj", struct: "+ Subjunctive", ex: "<strong>Es mejor que</strong> descanses." },
+    { phrase: "Sería bueno que", type: "subj", struct: "+ Subjunctive", ex: "<strong>Sería bueno que</strong> hicieras ejercicio." },
+    { phrase: "Yo en tu lugar", type: "inf", struct: "+ Conditional", ex: "<strong>Yo en tu lugar</strong> iría." },
+    { phrase: "Lo mejor es", type: "inf", struct: "+ Infinitive", ex: "<strong>Lo mejor es</strong> esperar." },
+    { phrase: "Propongo que", type: "subj", struct: "+ Subjunctive", ex: "<strong>Propongo que</strong> salgamos." },
+    { phrase: "Es importante que", type: "subj", struct: "+ Subjunctive", ex: "<strong>Es importante que</strong> llegues a tiempo." }
+];
+
+// --- QUIZ BANK (20+) ---
+const quizBank = [
+    { q: "Te recomiendo que (comer) sano.", a: ["comer", "comas"], c: 1, e: "Recomiendo que -> Subjunctive" },
+    { q: "Deberías (hacer) ejercicio.", a: ["hacer", "hagas"], c: 0, e: "Deberías -> Infinitive" },
+    { q: "Sugiero que tú (ir) al médico.", a: ["ir", "vayas"], c: 1, e: "Sugiero que -> Subjunctive" },
+    { q: "Podrías (llamar) a tu madre.", a: ["llamar", "llames"], c: 0, e: "Podrías -> Infinitive" },
+    { q: "Es importante que ellos (saber) la verdad.", a: ["saber", "sepan"], c: 1, e: "Es importante que -> Subjunctive" },
+    { q: "¿Por qué no (salir) hoy?", a: ["sales", "salgas"], c: 0, e: "Por qué no -> Present Indicative" },
+    { q: "Te aconsejo que (dormir) más.", a: ["dormir", "duermas"], c: 1, e: "Aconsejo que -> Subjunctive" },
+    { q: "Sería mejor (esperar).", a: ["esperar", "esperes"], c: 0, e: "Sería mejor -> Infinitive" },
+    { q: "Es mejor que tú (esperar).", a: ["esperar", "esperes"], c: 1, e: "Es mejor que -> Subjunctive" },
+    { q: "Propongo que nosotros (estudiar) juntos.", a: ["estudiar", "estudiemos"], c: 1, e: "Propongo que -> Subjunctive" },
+    { q: "Yo en tu lugar (hablar) con él.", a: ["hablaría", "hable"], c: 0, e: "Yo en tu lugar -> Conditional" },
+    { q: "Es necesario que (beber) agua.", a: ["beber", "bebas"], c: 1, e: "Es necesario que -> Subjunctive" },
+    { q: "Intentaría (llegar) temprano.", a: ["llegar", "llegue"], c: 0, e: "Intentaría -> Infinitive" },
+    { q: "Te pido que me (escuchar).", a: ["escuchar", "escuches"], c: 1, e: "Pido que -> Subjunctive" },
+    { q: "Deberías (descansar).", a: ["descansar", "descanses"], c: 0, e: "Deberías -> Infinitive" },
+    { q: "Es urgente que él (venir).", a: ["venir", "venga"], c: 1, e: "Urgente que -> Subjunctive" },
+    { q: "¿Por qué no (probar) esto?", a: ["pruebas", "pruebes"], c: 0, e: "Por qué no -> Present Indicative" },
+    { q: "Recomiendo que ustedes (leer) este libro.", a: ["leer", "lean"], c: 1, e: "Recomiendo que -> Subjunctive" },
+    { q: "Podrías (ayudarme).", a: ["ayudarme", "ayudes"], c: 0, e: "Podrías -> Infinitive" },
+    { q: "Quiero que tú (ser) feliz.", a: ["ser", "seas"], c: 1, e: "Quiero que -> Subjunctive" }
+];
+
+// --- STORY BANK (5 Stories) ---
+const storyBank = [
+    {
+        html: `<h3>Problema de Salud 🤒</h3>
+        <span>Te veo mal. Deberías</span> <select data-a="i"><option value="s">vayas</option><option value="i">ir</option></select> 
+        <span>al doctor. Te aconsejo que</span> <select data-a="s"><option value="i">descansar</option><option value="s">descanses</option></select>
+        <span>un poco. ¿Por qué no</span> <select data-a="ind"><option value="s">tomes</option><option value="ind">tomas</option></select>
+        <span>un té? Es mejor que no</span> <select data-a="s"><option value="s">salgas</option><option value="i">salir</option></select>
+        <span>hoy.`
+    },
+    {
+        html: `<h3>Planeando un Viaje ✈️</h3>
+        <span>Podrías</span> <select data-a="i"><option value="i">visitar</option><option value="s">visites</option></select>
+        <span>España. Sugiero que</span> <select data-a="s"><option value="i">comprar</option><option value="s">compres</option></select>
+        <span>los billetes ya. Es importante que</span> <select data-a="s"><option value="i">buscar</option><option value="s">busques</option></select>
+        <span>un buen hotel. Yo en tu lugar</span> <select data-a="c"><option value="s">lleve</option><option value="c">llevaría</option></select>
+        <span>poca ropa.`
+    },
+    {
+        html: `<h3>Problemas de Amor 💔</h3>
+        <span>Te recomiendo que</span> <select data-a="s"><option value="i">hablar</option><option value="s">hables</option></select>
+        <span>con ella. No deberías</span> <select data-a="i"><option value="s">ignores</option><option value="i">ignorar</option></select>
+        <span>sus mensajes. Es mejor que</span> <select data-a="s"><option value="i">ser</option><option value="s">seas</option></select>
+        <span>honesto. ¿Por qué no le</span> <select data-a="ind"><option value="s">escribas</option><option value="ind">escribes</option></select>
+        <span>una carta?`
+    },
+    {
+        html: `<h3>Buscando Trabajo 💼</h3>
+        <span>Es necesario que</span> <select data-a="s"><option value="i">actualizar</option><option value="s">actualices</option></select>
+        <span>tu CV. Podrías</span> <select data-a="i"><option value="s">busques</option><option value="i">buscar</option></select>
+        <span>en LinkedIn. Te sugiero que</span> <select data-a="s"><option value="i">practicar</option><option value="s">practiques</option></select>
+        <span>para la entrevista. Sería bueno que</span> <select data-a="s"><option value="i">vestir</option><option value="s">vistieras</option></select>
+        <span>bien.`
+    },
+    {
+        html: `<h3>Estudios 📚</h3>
+        <span>Deberías</span> <select data-a="i"><option value="s">organices</option><option value="i">organizar</option></select>
+        <span>tu tiempo. Te aconsejo que no</span> <select data-a="s"><option value="i">dejar</option><option value="s">dejes</option></select>
+        <span>todo para el final. Es importante que</span> <select data-a="s"><option value="i">dormir</option><option value="s">duermas</option></select>
+        <span>bien antes del examen. Podrías</span> <select data-a="i"><option value="s">hagas</option><option value="i">hacer</option></select>
+        <span>resúmenes.`
+    }
+];
+
+// --- DRAG & DROP BANK (24 Items) ---
+const dragDropBank = [
+    { text: "Te aconsejo que...", type: "subjunctive" }, { text: "Deberías...", type: "infinitive" },
+    { text: "Sugiero que...", type: "subjunctive" }, { text: "Podrías...", type: "infinitive" },
+    { text: "Es mejor que...", type: "subjunctive" }, { text: "Lo mejor es...", type: "infinitive" },
+    { text: "Recomiendo que...", type: "subjunctive" }, { text: "¿Por qué no...?", type: "infinitive" },
+    { text: "Es importante que...", type: "subjunctive" }, { text: "Yo en tu lugar...", type: "infinitive" },
+    { text: "Prefiero que...", type: "subjunctive" }, { text: "Sería bueno...", type: "infinitive" },
+    { text: "Quiero que...", type: "subjunctive" }, { text: "Tienes que...", type: "infinitive" },
+    { text: "Propongo que...", type: "subjunctive" }, { text: "Hay que...", type: "infinitive" },
+    { text: "Dudo que...", type: "subjunctive" }, { text: "Intenta...", type: "infinitive" },
+    { text: "Es necesario que...", type: "subjunctive" }, { text: "Procura...", type: "infinitive" },
+    { text: "Ojalá que...", type: "subjunctive" }, { text: "Trata de...", type: "infinitive" },
+    { text: "No creo que...", type: "subjunctive" }, { text: "Debes...", type: "infinitive" }
+];
+
+const flashcardData = [
+    { en: "You should study.", es: "Deberías <strong>estudiar</strong>.", explanation: "Conditional/Infinitive" },
+    { en: "I advise you to study.", es: "Te aconsejo que <strong>estudies</strong>.", explanation: "Subjunctive Trigger" },
+    { en: "Why don't you go?", es: "¿Por qué no <strong>vas</strong>?", explanation: "Present Indicative" },
+    { en: "I suggest that you go.", es: "Sugiero que <strong>vayas</strong>.", explanation: "Subjunctive Trigger" },
+    { en: "You could call him.", es: "Podrías <strong>llamarle</strong>.", explanation: "Conditional/Infinitive" },
+    { en: "It's better that you call.", es: "Es mejor que <strong>llames</strong>.", explanation: "Subjunctive Trigger" }
+];
+
+// --- LOGIC ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. TABS
+    window.changeMainTab = function(evt, tabId) {
+        document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('is-active'));
+        document.querySelectorAll('.main-tab-link').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('is-active');
+        evt.currentTarget.classList.add('active');
+        
+        if (tabId === 'tab-practica' && !document.getElementById('quiz-container').hasChildNodes()) {
+            generateQuiz(); generateStory(); generateDragDrop();
+        }
+        if (tabId === 'tab-bank') { renderBank(); }
+    }
+
+    // 2. VISUALIZER
+    window.toggleFormula = function() {
+        const toggle = document.getElementById('form-toggle');
+        const quePart = document.getElementById('formula-que');
+        const resultPart = document.getElementById('formula-result');
+
+        if (toggle.checked) {
+            quePart.style.display = 'inline-block';
+            resultPart.innerHTML = 'tú <strong>escuches</strong>.';
+            resultPart.className = 'formula-part subjunctive';
+        } else {
+            quePart.style.display = 'none';
+            resultPart.innerHTML = '<strong>escuchar</strong>.';
+            resultPart.className = 'formula-part infinitive';
+        }
+    }
+
+    // 3. BANK RENDERING
+    function renderBank() {
+        const container = document.getElementById('suggBankContainer');
+        const select = document.getElementById('suggSelect');
+        
+        if(container.innerHTML.trim() !== "") return;
+
+        suggestionDB.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.phrase; opt.textContent = item.phrase;
+            select.appendChild(opt);
+            
+            const dataStr = encodeURIComponent(JSON.stringify(item));
+            const card = `
+            <div class="verb-card" data-phr="${item.phrase}">
+                <div class="verb-header">
+                    <span class="verb-title">${item.phrase}</span>
+                    <div>
+                        <span class="verb-tag">${item.struct}</span>
+                        <button class="btn-explain" onclick="showExplanation('${dataStr}')">💡 Examples</button>
+                    </div>
+                </div>
+            </div>`;
+            container.innerHTML += card;
+        });
+
+        select.addEventListener('change', (e) => {
+            const val = e.target.value;
+            document.querySelectorAll('.verb-card').forEach(c => {
+                c.style.display = (val === 'all' || c.dataset.phr === val) ? '' : 'none';
+            });
+        });
+    }
+
+    // 4. MODAL
+    window.showExplanation = function(dataStr) {
+        const data = JSON.parse(decodeURIComponent(dataStr));
+        document.getElementById('modal-title').textContent = data.phrase;
+        document.getElementById('modal-struct').textContent = data.struct;
+        
+        const cleanEx = data.ex.replace(/<[^>]*>?/gm, '');
+        document.getElementById('modal-ex').innerHTML = `${data.ex} <span class="tts-icon" data-tts="${cleanEx}">🔊</span>`;
+        
+        document.getElementById('explain-modal').style.display = 'flex';
+    }
+    window.closeModal = () => document.getElementById('explain-modal').style.display = 'none';
+
+    // 5. QUIZ
+    document.getElementById('generate-quiz').addEventListener('click', generateQuiz);
+
+    function generateQuiz() {
+        const container = document.getElementById('quiz-container');
+        container.innerHTML = '';
+        const selectedQuestions = [...quizBank].sort(() => 0.5 - Math.random()).slice(0, 5);
+        
+        selectedQuestions.forEach((q, i) => {
+            const qId = `q_${i}`;
+            const cleanQ = q.q.replace(/[()]/g, "");
+            const tts = `<span class="tts-icon" data-tts="${cleanQ}">🔊</span>`;
+            
+            let html = `<div class="quiz-question" id="${qId}">
+                <p>${i+1}. ${q.q} ${tts}</p>`;
+            
+            q.a.forEach((opt, idx) => {
+                html += `<button onclick="checkQuiz('${qId}', ${idx === q.c})">${opt}</button>`;
+            });
+            
+            html += `<span class="feedback"></span>
+                     <div class="explanation-text" style="display:none;">${q.e}</div>
+                     </div>`;
+            container.innerHTML += html;
+        });
+    }
+
+    window.checkQuiz = function(qId, isCorrect) {
+        const el = document.getElementById(qId);
+        const fb = el.querySelector('.feedback');
+        const exp = el.querySelector('.explanation-text');
+        exp.style.display = 'block';
+        if(isCorrect) {
+            fb.textContent = "Correct! 👍"; fb.className = "feedback correct";
+        } else {
+            fb.textContent = "Try again. 😕"; fb.className = "feedback incorrect";
+        }
+    }
+
+    // 6. STORY
+    document.getElementById('generate-story').addEventListener('click', generateStory);
+    document.getElementById('check-story-btn').addEventListener('click', checkStory);
+
+    function generateStory() {
+        const currentStoryData = storyBank[Math.floor(Math.random() * storyBank.length)];
+        document.getElementById('story-container').innerHTML = currentStoryData.html;
+    }
+
+    function checkStory() {
+        const container = document.getElementById('story-container');
+        const selects = container.querySelectorAll('select');
+        selects.forEach(sel => {
+            const val = sel.value;
+            const isCorrect = val === sel.dataset.a; 
+            sel.style.borderColor = isCorrect ? "var(--green)" : "var(--red)";
+            sel.style.backgroundColor = isCorrect ? "#d4edda" : "#f8d7da";
+        });
+    }
+
+    // 7. DRAG & DROP
+    const dragPool = document.getElementById('drag-items-pool');
+    document.getElementById('generate-drag').addEventListener('click', generateDragDrop);
+    document.getElementById('check-drag-btn').addEventListener('click', checkDrag);
+    
+    let currentDragItems = [];
+
+    function generateDragDrop() {
+        dragPool.innerHTML = '';
+        document.getElementById('drag-feedback').textContent = '';
+        document.querySelectorAll('.dropzone .draggable').forEach(e => e.remove());
+        
+        currentDragItems = [...dragDropBank].sort(() => 0.5 - Math.random()).slice(0, 8);
+        
+        currentDragItems.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'draggable';
+            el.draggable = true;
+            const cleanText = item.text.replace(/<[^>]*>?/gm, '');
+            const ttsHtml = `&nbsp;<span class="tts-icon" data-tts="${cleanText}">🔊</span>`;
+            el.innerHTML = `${item.text} ${ttsHtml}`;
+            el.dataset.type = item.type;
+            
+            el.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('type', item.type);
+                e.target.classList.add('dragging');
+            });
+            el.addEventListener('dragend', e => e.target.classList.remove('dragging'));
+            el.addEventListener('touchstart', touchStart, {passive: false});
+            
+            dragPool.appendChild(el);
+        });
+        
+        setupDropzones();
+    }
+
+    function setupDropzones() {
+        document.querySelectorAll('.dropzone').forEach(zone => {
+            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+            zone.addEventListener('drop', e => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                const dragging = document.querySelector('.dragging');
+                if(dragging) zone.appendChild(dragging);
+            });
+        });
+    }
+
+    // Touch Logic
+    let tDrag = null;
+    function touchStart(e) {
+        if(e.target.classList.contains('tts-icon')) return;
+        tDrag = e.target.closest('.draggable');
+        if(!tDrag) return;
+        e.preventDefault();
+        tDrag.classList.add('dragging');
+        document.addEventListener('touchmove', touchMove, {passive: false});
+        document.addEventListener('touchend', touchEnd);
+    }
+    function touchMove(e) {
+        if(!tDrag) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        tDrag.style.position = 'fixed';
+        tDrag.style.zIndex = 1000;
+        tDrag.style.left = (t.clientX - tDrag.offsetWidth/2) + 'px';
+        tDrag.style.top = (t.clientY - tDrag.offsetHeight/2) + 'px';
+    }
+    function touchEnd(e) {
+        if(!tDrag) return;
+        const t = e.changedTouches[0];
+        tDrag.style.position = ''; tDrag.style.zIndex = ''; tDrag.style.left = ''; tDrag.style.top = '';
+        tDrag.classList.remove('dragging');
+        
+        const elem = document.elementFromPoint(t.clientX, t.clientY);
+        const zone = elem ? elem.closest('.dropzone') : null;
+        if(zone) zone.appendChild(tDrag);
+        
+        document.removeEventListener('touchmove', touchMove);
+        document.removeEventListener('touchend', touchEnd);
+        tDrag = null;
+    }
+
+    function checkDrag() {
+        let correct = 0;
+        const zones = {
+            'zone-infinitive': 'infinitive',
+            'zone-subjunctive': 'subjunctive'
+        };
+        
+        for (const [zoneId, type] of Object.entries(zones)) {
+            const zone = document.getElementById(zoneId);
+            zone.querySelectorAll('.draggable').forEach(item => {
+                if(item.dataset.type === type) {
+                    item.style.backgroundColor = '#d4edda'; correct++;
+                } else {
+                    item.style.backgroundColor = '#f8d7da';
+                }
+            });
+        }
+        document.getElementById('drag-feedback').textContent = `Correct: ${correct}`;
+    }
+
+    // 8. FLASHCARDS
+    let cIdx = 0;
+    function loadCard() {
+        const d = flashcardData[cIdx];
+        const tts = `&nbsp;<span class="tts-icon" data-tts="${d.es.replace(/<[^>]*>?/gm, '')}">🔊</span>`;
+        document.getElementById('card-front').innerHTML = d.en;
+        document.getElementById('card-back').innerHTML = `${d.es} ${tts}<br><br><small>${d.explanation}</small>`;
+        document.getElementById('flashcard').classList.remove('is-flipped');
+    }
+    window.flipCard = () => document.getElementById('flashcard').classList.toggle('is-flipped');
+    window.nextCard = () => { cIdx = (cIdx+1)%flashcardData.length; loadCard(); };
+    window.prevCard = () => { cIdx = (cIdx-1+flashcardData.length)%flashcardData.length; loadCard(); };
+    
+    document.getElementById('flashcard').addEventListener('click', function(e) {
+        if(e.target.classList.contains('tts-icon')) {
+            e.stopPropagation();
+            speak(e.target.dataset.tts);
+        } else {
+            flipCard();
+        }
+    });
+
+    // Utils
+    window.toggleLang = function() {
+        currentLang = currentLang === 'en' ? 'es' : 'en';
+        document.querySelectorAll('[data-lang-key]').forEach(el => {
+            const key = el.dataset.langKey;
+            if(uiData[currentLang][key]) el.innerHTML = uiData[currentLang][key];
+        });
+    }
+
+    window.toggleTheme = () => document.body.classList.toggle('dark-mode');
+
+    // AUDIO ENGINE
+    function speak(txt) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(txt);
+        u.lang = 'es-ES';
+        const voices = window.speechSynthesis.getVoices();
+        const v = voices.find(voice => voice.name.includes('Google') && voice.lang.includes('es')) || 
+                  voices.find(voice => (voice.name.includes('Monica') || voice.name.includes('Paulina')) && voice.lang.includes('es')) ||
+                  voices.find(voice => voice.lang.includes('es'));
+        if(v) u.voice = v;
+        window.speechSynthesis.speak(u);
+    }
+    
+    // Global TTS
+    document.body.addEventListener('click', function(e) {
+        if(e.target.classList.contains('tts-icon') && !e.target.closest('#flashcard')) {
+            e.stopPropagation(); 
+            speak(e.target.dataset.tts);
+        }
+    });
+
+    // Init
+    loadCard();
+    window.speechSynthesis.onvoiceschanged = () => {}; 
+});
+</script>
+</body>
+</html>
